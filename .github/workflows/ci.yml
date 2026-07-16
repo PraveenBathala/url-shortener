@@ -19,6 +19,9 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
       - name: Unit and integration tests
         run: ./mvnw clean test
 
