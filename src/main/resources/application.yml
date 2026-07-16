@@ -1,0 +1,58 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: url-shortener
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/urlshortener}
+    username: ${DATABASE_USERNAME:urlshortener}
+    password: ${DATABASE_PASSWORD:urlshortener}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:200ms}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    redis:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  short-code:
+    length: ${APP_SHORT_CODE_LENGTH:7}
+    max-generation-attempts: ${APP_SHORT_CODE_MAX_ATTEMPTS:5}
+  destination-url:
+    max-length: ${APP_DESTINATION_URL_MAX_LENGTH:2048}
+  cache:
+    default-ttl-seconds: ${APP_CACHE_DEFAULT_TTL_SECONDS:3600}
+    negative-ttl-seconds: ${APP_CACHE_NEGATIVE_TTL_SECONDS:30}
+  analytics:
+    publish-timeout-ms: ${APP_ANALYTICS_PUBLISH_TIMEOUT_MS:50}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} service=${spring.application.name} env=${ENVIRONMENT:local} requestId=%X{requestId:-} traceId=%X{traceId:-} level=%level logger=%logger{36} msg=%msg%n"
