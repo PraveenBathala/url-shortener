@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="url-shortener"/>
+    <springProperty scope="context" name="ENVIRONMENT" source="ENVIRONMENT" defaultValue="local"/>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <customFields>{"service":"${APP_NAME}","environment":"${ENVIRONMENT}"}</customFields>
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</timestampPattern>
+        </encoder>
+    </appender>
+
+    <appender name="CONSOLE_TEXT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} service=${APP_NAME} env=${ENVIRONMENT} requestId=%X{requestId:-} traceId=%X{traceId:-} level=%level logger=%logger{36} msg=%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Default: JSON for ELK/Loki-ready production parsing -->
+    <springProfile name="!local-text">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON"/>
+        </root>
+    </springProfile>
+
+    <!-- Optional human-readable console: spring.profiles.active=local-text -->
+    <springProfile name="local-text">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_TEXT"/>
+        </root>
+    </springProfile>
+</configuration>

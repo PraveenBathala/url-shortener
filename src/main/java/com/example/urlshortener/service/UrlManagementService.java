@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.urlshortener.api.error.ShortCodeNotFoundException;
+import com.example.urlshortener.audit.AuditLogger;
 import com.example.urlshortener.cache.ShortUrlCache;
 import com.example.urlshortener.domain.ShortUrl;
 import com.example.urlshortener.persistence.ShortUrlRepository;
@@ -22,20 +23,23 @@ public class UrlManagementService {
     private final ShortUrlRepository shortUrlRepository;
     private final ShortUrlCache shortUrlCache;
     private final Clock clock;
+    private final AuditLogger auditLogger;
 
     public UrlManagementService(
             ShortCodeFormatValidator shortCodeFormatValidator,
             ShortUrlRepository shortUrlRepository,
             ShortUrlCache shortUrlCache,
-            Clock clock) {
+            Clock clock,
+            AuditLogger auditLogger) {
         this.shortCodeFormatValidator = shortCodeFormatValidator;
         this.shortUrlRepository = shortUrlRepository;
         this.shortUrlCache = shortUrlCache;
         this.clock = clock;
+        this.auditLogger = auditLogger;
     }
 
     /**
-     * Soft-disables a short URL. Authentication is required before public production exposure.
+     * Soft-disables a short URL. Protected by API key authentication.
      */
     @Transactional
     public void disable(String rawShortCode) {
@@ -46,6 +50,7 @@ public class UrlManagementService {
         shortUrl.disable(clock.instant());
         shortUrlRepository.saveAndFlush(shortUrl);
         shortUrlCache.evict(shortCode);
+        auditLogger.record("DISABLE_URL", shortCode, "success");
         log.info("operation=disableUrl status=success shortCodeLength={}", shortCode.length());
     }
 }

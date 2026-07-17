@@ -18,17 +18,17 @@ PostgreSQL is authoritative. Redis accelerates the redirect hot path. Analytics 
 ```text
 Client
   |
-  +--> POST /api/v1/urls ----> CreationController
-  |                               |
-  |                          UrlValidation
-  |                               |
-  |                          ShortCodeGenerator
-  |                               |
-  |                          UrlCreationService
-  |                               |
-  |                          ShortUrlRepository --> PostgreSQL
-  |                               |
-  |                          (optional cache warm)
+  +--> POST /api/v1/urls (+ /bulk) --> ApiKey + RateLimit
+  |                                      |
+  |                                 UrlCreationController
+  |                                      |
+  |                                 DestinationUrlValidator
+  |                                      |
+  |                                 UrlSafetyAgent (tools)
+  |                                      |
+  |                                 UrlCreationService --> PostgreSQL
+  |                                      |
+  |                                 AuditLogger
   |
   +--> GET /{shortCode} ----> RedirectController
   |                               |
@@ -40,22 +40,26 @@ Client
   |                               |
   |                          302 Location / 4xx
   |                               |
-  |                          RedirectEventPublisher (best-effort)
+  |                          RedirectEventPublisher --> redirect_analytics
   |
-  +--> DELETE /api/v1/urls/{code} --> UrlManagementService
+  +--> GET /api/v1/analytics/{code} --> ApiKey --> AnalyticsQueryService
+  |
+  +--> DELETE /api/v1/urls/{code} --> ApiKey --> UrlManagementService
                                          |
-                                    soft-disable + cache invalidate
+                                    soft-disable + cache invalidate + audit
 ```
 
 ## Creation path
 
-1. Client submits destination URL and optional expiration.
-2. Controller binds/validates the request DTO.
-3. Destination validator enforces HTTP/HTTPS structural rules (no network fetch).
-4. Service generates a Base62 short code via `SecureRandom`.
-5. Service inserts into PostgreSQL.
-6. Unique constraint detects collisions; service retries system-generated codes up to a configured limit.
-7. Response returns `201 Created` with short URL metadata.
+1. Client submits destination URL and optional expiration with `X-API-Key`.
+2. Rate limiter and API key filter gate the request.
+3. Controller binds/validates the request DTO.
+4. Destination validator enforces HTTP/HTTPS structural rules (no network fetch).
+5. `UrlSafetyAgent` runs plan→act→observe→decide over safety tools; HIGH risk may block.
+6. Service generates a Base62 short code via `SecureRandom`.
+7. Service inserts into PostgreSQL.
+8. Unique constraint detects collisions; service retries system-generated codes up to a configured limit.
+9. Audit log records create; response returns `201 Created`.
 
 ## Redirect path
 
@@ -70,12 +74,15 @@ Client
 ## Analytics path
 
 ```text
-RedirectService --> RedirectEventPublisher --> in-process sink / future broker
+RedirectService --> RedirectEventPublisher --> log sink + redirect_analytics aggregates
+Client --> GET /api/v1/analytics/{code} (API key)
 ```
 
 - Minimal event fields (short code, timestamp, outcome)
 - No raw IP unless explicitly required later
+- Aggregate counters power the HTTP analytics API
 - Duplicate-event and loss behavior documented in operations docs
+- See `docs/agentic.md` for the create-path safety agent
 
 ## Database
 

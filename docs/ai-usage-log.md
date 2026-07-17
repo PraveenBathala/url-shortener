@@ -222,3 +222,157 @@ Deterministic serialization and clearer failure modes.
 - `RedisShortUrlCache.java`
 - `RedisShortUrlCacheTest.java`
 - `UrlShortenerFlowIT.java`
+
+---
+
+## Task or decision
+
+Date: 2026-07-17
+
+### Goal
+
+Close assessment gaps: OpenAPI, auth, analytics HTTP API, bulk create, JSON logging, NFRs, and agentic artifacts.
+
+### Context provided to Cursor
+
+Assessment screenshots showing Strong Pass (~4.35) with missing OpenAPI/agentic artifacts; risks for unauthenticated create/disable, missing analytics endpoint, bulk gap, unstructured logs, thin AI usage log, and unquantified NFRs. Directive to build in `url-shortner -Agentic` and use an agentic framework where applicable.
+
+### Prompt summary
+
+Build the solution in the specified path, fix identified issues, cover scenarios, apply agentic framework as applicable.
+
+### Cursor recommendation
+
+Could add Spring AI / external LLM agent, OAuth2 resource server, Bucket4j, and Kafka analytics.
+
+### My evaluation
+
+External LLM would break hermetic tests and add secrets. OAuth is heavier than needed for an interview MVP. Prefer API key + deterministic tool-using agent + SpringDoc + persisted analytics counters.
+
+### What I accepted
+
+- Spring Security filter for `X-API-Key` on management APIs
+- springdoc OpenAPI/Swagger
+- `GET /api/v1/analytics/{code}` with Flyway-backed counters
+- Bulk create with per-item partial success
+- `logback-spring.xml` + Logstash JSON encoder
+- In-memory rate limit + audit logger
+- Quantified NFR targets in requirements
+
+### What I changed or rejected
+
+- Rejected remote LLM planner for MVP agent (use deterministic `UrlSafetyAgent` tool loop)
+- Rejected OAuth/OIDC for this pass (document upgrade path)
+- Rejected DNS lookup in host risk tool (literal IP / hostname heuristics only)
+
+### Reason
+
+Keep tests offline, preserve SSRF posture, close rubric gaps without infrastructure sprawl.
+
+### Validation performed
+
+Full Maven test suite executed after implementation (see latest `docs/rubric-evidence.md` result).
+
+### Related files and tests
+
+- `docs/agentic.md`, `UrlSafetyAgent*`, `SecurityConfig`, `AnalyticsController`
+- `UrlShortenerFlowIT`, `UrlSafetyAgentTest`, `BulkUrlCreationServiceTest`
+
+---
+
+## Task or decision
+
+Date: 2026-07-17
+
+### Goal
+
+Decide bulk create success semantics.
+
+### Context provided to Cursor
+
+Assessment noted bulk shortening missing and not documented in tradeoffs.
+
+### Prompt summary
+
+Implement bulk URL shortening as part of gap closure.
+
+### Cursor recommendation
+
+All-or-nothing transaction for the whole batch.
+
+### My evaluation
+
+Marketing/import batches often contain one bad URL; failing the entire batch is poor UX for operators.
+
+### What I accepted
+
+`POST /api/v1/urls/bulk` returning per-item `CREATED`/`FAILED` with HTTP 200.
+
+### What I changed or rejected
+
+Rejected all-or-nothing batch transaction.
+
+### Reason
+
+Partial success matches operational use; documented in `docs/tradeoffs.md`.
+
+### Validation performed
+
+`BulkUrlCreationServiceTest` + Flow IT bulk case.
+
+### Related files and tests
+
+- `BulkUrlCreationService.java`
+- `BulkUrlCreationServiceTest.java`
+- `UrlShortenerFlowIT.java`
+
+---
+
+## Task or decision
+
+Date: 2026-07-17
+
+### Goal
+
+Finalize docs and submission evidence after gap closure.
+
+### Context provided to Cursor
+
+User asked to update docs and complete remaining changes before submit.
+
+### Prompt summary
+
+Update stale interview notes / test strategy, run `clean verify`, smoke-test the submission JAR.
+
+### Cursor recommendation
+
+Could skip JAR smoke and only refresh markdown.
+
+### My evaluation
+
+Submission criteria require an executable JAR with manual create/redirect verification; docs must match shipped auth/agentic/analytics behavior.
+
+### What I accepted
+
+- Refresh `docs/interview-notes.md` and `docs/test-strategy.md`
+- Re-run `mvnw clean verify` (47 tests + failsafe)
+- Smoke-test JAR against Compose Postgres/Redis including API key, analytics, OpenAPI
+
+### What I changed or rejected
+
+N/A for this pass beyond documentation accuracy.
+
+### Reason
+
+Honest evidence and interview answers must match the final code.
+
+### Validation performed
+
+`.\mvnw.cmd clean verify` → BUILD SUCCESS; JAR runtime checks recorded in `docs/rubric-evidence.md`.
+
+### Related files and tests
+
+- `docs/interview-notes.md`
+- `docs/test-strategy.md`
+- `docs/rubric-evidence.md`
+- `target/url-shortener-0.0.1-SNAPSHOT.jar`

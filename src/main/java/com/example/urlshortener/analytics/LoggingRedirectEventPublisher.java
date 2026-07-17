@@ -18,6 +18,7 @@ import jakarta.annotation.PreDestroy;
 
 /**
  * In-process best-effort publisher. Events may be lost on timeout/failure.
+ * Persists aggregate counters for {@code GET /api/v1/analytics/{code}}.
  * Duplicate delivery is possible if a future retry adapter is introduced later;
  * consumers should treat events as at-least-once / idempotent by shortCode+timestamp.
  */
@@ -28,12 +29,17 @@ public class LoggingRedirectEventPublisher implements RedirectEventPublisher {
 
     private final long publishTimeoutMs;
     private final UrlShortenerMetrics metrics;
+    private final AnalyticsPersistenceService analyticsPersistenceService;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public LoggingRedirectEventPublisher(AppProperties appProperties, UrlShortenerMetrics metrics) {
+    public LoggingRedirectEventPublisher(
+            AppProperties appProperties,
+            UrlShortenerMetrics metrics,
+            AnalyticsPersistenceService analyticsPersistenceService) {
         this.publishTimeoutMs = appProperties.getAnalytics().getPublishTimeoutMs();
         this.metrics = metrics;
+        this.analyticsPersistenceService = analyticsPersistenceService;
     }
 
     @Override
@@ -59,11 +65,11 @@ public class LoggingRedirectEventPublisher implements RedirectEventPublisher {
     }
 
     private void sink(RedirectEvent event) {
-        // Minimal sink for MVP — replaceable with a durable broker later.
         log.info(
                 "operation=analyticsEvent outcome={} shortCodeLength={}",
                 event.outcome(),
                 event.shortCode().length());
+        analyticsPersistenceService.record(event);
     }
 
     @PreDestroy

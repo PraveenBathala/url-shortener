@@ -31,25 +31,31 @@ Build a production-oriented URL shortener that:
 | FR-13 | Observability | Actuator health, Micrometer metrics, structured logs without sensitive data |
 | FR-14 | Local ops | Docker Compose for PostgreSQL/Redis; executable JAR for the application |
 
-## Non-functional requirements
+## Non-functional requirements (quantified targets)
 
-| ID | Requirement | Notes |
+These are **design targets**, not measured production SLOs.
+
+| ID | Requirement | Target / assumption |
 |---|---|---|
-| NFR-01 | Redirect path optimized | Redirect traffic assumed much higher than creation |
-| NFR-02 | Availability under cache failure | Valid links remain available if PostgreSQL is healthy |
-| NFR-03 | Privacy-safe logging | Do not log full destinations, secrets, or PII |
-| NFR-04 | Testability | Unit, controller, and PostgreSQL Testcontainers integration tests |
-| NFR-05 | Configurability | Secrets and environment settings via environment variables |
-| NFR-06 | Single-region MVP | Multi-region and sharding deferred |
+| NFR-01 | Redirect path optimized | Redirect:create traffic ratio ≈ 100:1 |
+| NFR-02 | Cached redirect latency | p99 ≤ 20 ms for cache hits (local/single-region target) |
+| NFR-03 | Uncached redirect latency | p99 ≤ 100 ms when PostgreSQL is healthy |
+| NFR-04 | Create latency | p99 ≤ 200 ms excluding client network |
+| NFR-05 | Availability under cache failure | Valid links remain available if PostgreSQL is healthy; redirect availability target 99.99% |
+| NFR-06 | Create/disable abuse control | Default 60 authenticated write requests/minute/client |
+| NFR-07 | Privacy-safe logging | Do not log full destinations, secrets, or PII; JSON logs for ELK/Loki |
+| NFR-08 | Scale assumption (MVP) | Single region, ~1k redirects/sec peak with Redis cache-aside (not load-tested here) |
+| NFR-09 | Testability | Unit, controller, and PostgreSQL/Redis Testcontainers integration tests |
+| NFR-10 | Configurability | Secrets and environment settings via environment variables |
 
 ## Out of scope for MVP
 
-- Authentication/authorization for public creation API (documented as required before production exposure of management ops)
-- Rate limiting
-- Malware/phishing scanning
+- OAuth/OIDC multi-user identity
+- Distributed (Redis) rate limiting across many instances
+- Remote malware/phishing reputation APIs
 - Kafka or other event streaming platforms
 - Kubernetes / multi-region deployment
-- Custom aliases (evaluated in Phase 10; deferred if scope-heavy)
+- Custom aliases (evaluated in Phase 10; deferred)
 
 ## Success definition
 

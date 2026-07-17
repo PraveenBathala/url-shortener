@@ -10,6 +10,7 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -20,9 +21,12 @@ import com.example.urlshortener.api.dto.ShortUrlResponse;
 import com.example.urlshortener.api.error.GlobalExceptionHandler;
 import com.example.urlshortener.api.error.InvalidDestinationUrlException;
 import com.example.urlshortener.domain.ShortUrlStatus;
+import com.example.urlshortener.service.BulkUrlCreationService;
 import com.example.urlshortener.service.UrlCreationService;
 
-@WebMvcTest(controllers = UrlCreationController.class)
+@WebMvcTest(
+        controllers = UrlCreationController.class,
+        excludeAutoConfiguration = SecurityAutoConfiguration.class)
 @Import({GlobalExceptionHandler.class, RequestIdFilter.class})
 class UrlCreationControllerTest {
 
@@ -31,6 +35,9 @@ class UrlCreationControllerTest {
 
     @MockitoBean
     private UrlCreationService urlCreationService;
+
+    @MockitoBean
+    private BulkUrlCreationService bulkUrlCreationService;
 
     @Test
     void returnsCreatedWithBody() throws Exception {

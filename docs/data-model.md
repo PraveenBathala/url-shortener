@@ -25,4 +25,19 @@ Random generation does **not** guarantee uniqueness. The primary key constraint 
 
 ## Analytics
 
-Click/redirect analytics are not stored as a synchronously updated counter on `short_urls`. Events are published separately (best-effort).
+Click/redirect analytics are **not** stored as a synchronously updated counter on `short_urls`.
+The redirect path publishes best-effort events; a separate aggregate table supports `GET /api/v1/analytics/{code}`.
+
+### Table: `redirect_analytics`
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `short_code` | `VARCHAR(16)` | Primary key | Same code space as `short_urls` |
+| `redirect_count` | `BIGINT` | NOT NULL default 0 | Successful redirects |
+| `not_found_count` | `BIGINT` | NOT NULL default 0 | Unknown code attempts |
+| `expired_count` | `BIGINT` | NOT NULL default 0 | Expired attempts |
+| `disabled_count` | `BIGINT` | NOT NULL default 0 | Disabled attempts |
+| `last_event_at` | `TIMESTAMPTZ` | NULL | Last recorded event |
+| `updated_at` | `TIMESTAMPTZ` | NOT NULL | Row update time |
+
+Counters may lag or miss events under publisher timeout/failure by design.

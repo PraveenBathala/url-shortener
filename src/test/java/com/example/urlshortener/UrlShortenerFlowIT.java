@@ -32,17 +32,24 @@ import org.testcontainers.utility.DockerImageName;
 import com.example.urlshortener.domain.ShortUrl;
 import com.example.urlshortener.domain.ShortUrlStatus;
 import com.example.urlshortener.persistence.ShortUrlRepository;
+import com.example.urlshortener.security.ApiKeyAuthFilter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redis.testcontainers.RedisContainer;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.security.api-key=test-api-key",
+        "app.security.require-api-key=true",
+        "app.security.rate-limit.enabled=false",
+        "app.analytics.publish-timeout-ms=2000"
+})
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
 @Import(UrlShortenerFlowIT.FixedClockConfig.class)
 class UrlShortenerFlowIT {
 
     private static final Instant NOW = Instant.parse("2026-07-16T20:00:00Z");
+    private static final String API_KEY = "test-api-key";
 
     @Container
     @ServiceConnection
@@ -65,8 +72,9 @@ class UrlShortenerFlowIT {
     private ShortUrlRepository shortUrlRepository;
 
     @Test
-    void createPersistRedirectAndDisableFlow() throws Exception {
+    void createPersistRedirectAnalyticsAndDisableFlow() throws Exception {
         MvcResult createResult = mockMvc.perform(post("/api/v1/urls")
+                        .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -93,15 +101,55 @@ class UrlShortenerFlowIT {
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "https://example.com/products/123"));
 
-        mockMvc.perform(delete("/api/v1/urls/" + shortCode))
+        awaitAnalytics(shortCode, 2);
+
+        mockMvc.perform(get("/api/v1/analytics/" + shortCode)
+                        .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shortCode").value(shortCode))
+                .andExpect(jsonPath("$.redirectCount").value(2));
+
+        mockMvc.perform(delete("/api/v1/urls/" + shortCode)
+                        .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/" + shortCode))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.errorCode").value("SHORT_CODE_DISABLED"));
 
-        mockMvc.perform(delete("/api/v1/urls/missing1"))
+        mockMvc.perform(delete("/api/v1/urls/missing1")
+                        .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rejectsCreateWithoutApiKey() throws Exception {
+        mockMvc.perform(post("/api/v1/urls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"destinationUrl":"https://example.com"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void bulkCreateReturnsPerItemResults() throws Exception {
+        mockMvc.perform(post("/api/v1/urls/bulk")
+                        .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "urls": [
+                                    {"destinationUrl":"https://example.com/a"},
+                                    {"destinationUrl":"javascript:alert(1)"}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("CREATED"))
+                .andExpect(jsonPath("$.results[1].status").value("FAILED"))
+                .andExpect(jsonPath("$.results[1].errorCode").value("INVALID_DESTINATION_URL"));
     }
 
     @Test
@@ -135,6 +183,24 @@ class UrlShortenerFlowIT {
         mockMvc.perform(get("/disable1"))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.errorCode").value("SHORT_CODE_DISABLED"));
+    }
+
+    private void awaitAnalytics(String shortCode, long expectedRedirects) throws Exception {
+        long deadline = System.currentTimeMillis() + 5_000;
+        AssertionError last = null;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                mockMvc.perform(get("/api/v1/analytics/" + shortCode)
+                                .header(ApiKeyAuthFilter.API_KEY_HEADER, API_KEY))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.redirectCount").value(expectedRedirects));
+                return;
+            } catch (AssertionError ex) {
+                last = ex;
+                Thread.sleep(100);
+            }
+        }
+        throw last == null ? new AssertionError("analytics not ready") : last;
     }
 
     @TestConfiguration

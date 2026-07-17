@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: url-shortener
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/urlshortener}
     username: ${DATABASE_USERNAME:urlshortener}
@@ -40,6 +43,12 @@ management:
     tags:
       application: ${spring.application.name}
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   short-code:
@@ -51,8 +60,15 @@ app:
     default-ttl-seconds: ${APP_CACHE_DEFAULT_TTL_SECONDS:3600}
     negative-ttl-seconds: ${APP_CACHE_NEGATIVE_TTL_SECONDS:30}
   analytics:
-    publish-timeout-ms: ${APP_ANALYTICS_PUBLISH_TIMEOUT_MS:50}
-
-logging:
-  pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} service=${spring.application.name} env=${ENVIRONMENT:local} requestId=%X{requestId:-} traceId=%X{traceId:-} level=%level logger=%logger{36} msg=%msg%n"
+    publish-timeout-ms: ${APP_ANALYTICS_PUBLISH_TIMEOUT_MS:250}
+  security:
+    api-key: ${APP_API_KEY:dev-api-key-change-me}
+    require-api-key: ${APP_SECURITY_REQUIRE_API_KEY:true}
+    rate-limit:
+      enabled: ${APP_RATE_LIMIT_ENABLED:true}
+      requests-per-minute: ${APP_RATE_LIMIT_PER_MINUTE:60}
+  bulk:
+    max-batch-size: ${APP_BULK_MAX_BATCH_SIZE:20}
+  agentic:
+    enabled: ${APP_AGENTIC_ENABLED:true}
+    block-high-risk: ${APP_AGENTIC_BLOCK_HIGH_RISK:true}

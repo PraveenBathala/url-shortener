@@ -8,9 +8,9 @@ Target overall score: at least **4.5 / 5**.
 | Software Design and Architecture | 20% | 4.5–5 | `docs/architecture.md`, `docs/data-model.md`, layered packages under `src/main/java` |
 | AI-Assisted Development | 20% | 5 | `docs/ai-usage-log.md` (real interactions only) |
 | Code Quality | 15% | 4.5 | Constructor injection, focused services/controllers, immutable DTOs/records |
-| Testing and Reliability | 10% | 4.5 | 39 automated tests incl. Testcontainers + reliability behaviors |
-| Security and Production Readiness | 10% | 4–4.5 | `docs/security.md`, destination validator, privacy-safe logs, deferred controls documented |
-| Observability | 5% | 4 | Actuator, Micrometer counters/timers, structured log pattern, `docs/operations.md` |
+| Testing and Reliability | 10% | 4.5 | 47 automated tests incl. agentic/bulk/auth coverage + Testcontainers (when Docker available) |
+| Security and Production Readiness | 10% | 4–4.5 | API key auth, rate limit, audit log, agentic HIGH-risk block, `docs/security.md` |
+| Observability | 5% | 4 | Actuator, Micrometer, JSON `logback-spring.xml`, OpenAPI, `docs/operations.md` |
 | Communication and Ownership | 5% | 5 | README + interview notes + explicit AI ownership |
 
 ## Phase log
@@ -49,18 +49,22 @@ Security/ops/test docs; metrics component; reliability unit tests.
 
 Dockerfile, GitHub Actions, `clean verify`, JAR runtime checks (see below when executed).
 
+## Gap-closure pass (2026-07-17)
+
+Added: OpenAPI/Swagger, API key auth, rate limiting, audit logging, analytics HTTP API, bulk create, JSON logging, quantified NFRs, agentic `UrlSafetyAgent` (`docs/agentic.md`).
+
 ## Latest full suite result
 
 ```text
 Command: $env:DOCKER_HOST = "npipe:////./pipe/dockerDesktopLinuxEngine"; .\mvnw.cmd clean test
-Result: Tests run: 39, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
+Result: Tests run: 47, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 ```
 
-Observed in Flow IT: `cacheResult=miss` then `cacheResult=hit` on second redirect.
+Includes Testcontainers coverage: `UrlShortenerFlowIT` (create/redirect/analytics/disable/auth/bulk), `UrlShortenerApplicationTests`, `ShortUrlRepositoryTest`.
 
-## Final JAR validation (Phase 19)
+## Final JAR validation (Phase 19 — revalidated 2026-07-17)
 
-**Submission JAR:** `target/url-shortener-0.0.1-SNAPSHOT.jar` (≈68 MB)
+**Submission JAR:** `target/url-shortener-0.0.1-SNAPSHOT.jar` (≈74 MB)
 
 **Build command:**
 
@@ -69,20 +73,22 @@ $env:DOCKER_HOST = "npipe:////./pipe/dockerDesktopLinuxEngine"
 .\mvnw.cmd clean verify
 ```
 
-**Result:** `Tests run: 39` in surefire + failsafe Flow IT rerun — `BUILD SUCCESS`
+**Result:** Surefire `Tests run: 47, Failures: 0, Errors: 0, Skipped: 0`; Failsafe Flow IT `Tests run: 4` — `BUILD SUCCESS`
 
-**Runtime checks against** `java -jar target/url-shortener-0.0.1-SNAPSHOT.jar` with Compose PostgreSQL/Redis:
+**Runtime checks against** `java -jar target/url-shortener-0.0.1-SNAPSHOT.jar` with Compose PostgreSQL/Redis (`APP_API_KEY=dev-api-key-change-me`):
 
 | Check | Actual |
 |---|---|
 | App starts | `Started UrlShortenerApplication` |
 | Health | `200` `{"status":"UP"}` |
-| Create | `201` with shortCode/shortUrl |
-| Redirect | `302` `Location: https://example.com/products/123` |
-| Invalid URL | `400` `INVALID_DESTINATION_URL` |
-| Unknown code | `404` `SHORT_CODE_NOT_FOUND` |
-| Disable + redirect | `204` then `410` `SHORT_CODE_DISABLED` |
+| Create without API key | `401` |
+| Create with API key | `201` with shortCode/shortUrl |
+| Redirect | `302` with `Location` to destination |
+| Analytics | `200` with `redirectCount` ≥ 1 |
+| Invalid URL | `400` |
+| Unknown code | `404` |
+| Disable + redirect | `204` then `410` |
+| OpenAPI | `200` OpenAPI 3.1.0 at `/v3/api-docs` |
 | Metrics | `200` for `urlshortener.redirects` |
-| Redis stopped fallback | create `201`, redirect `302` via PostgreSQL |
-| Secrets in JAR | No `.env` / password files packaged |
-| Metadata | `META-INF/MANIFEST.MF`, `META-INF/build-info.properties`, `BOOT-INF/classes/git.properties` present (limited git fields because repo has no `.git`) |
+| Secrets in JAR | No `.env` / credentials entries in JAR listing |
+| Metadata | `META-INF/MANIFEST.MF`, `META-INF/build-info.properties`, `BOOT-INF/classes/git.properties` present |

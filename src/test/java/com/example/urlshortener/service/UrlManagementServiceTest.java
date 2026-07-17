@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.urlshortener.api.error.ShortCodeNotFoundException;
+import com.example.urlshortener.audit.AuditLogger;
 import com.example.urlshortener.cache.ShortUrlCache;
 import com.example.urlshortener.domain.ShortUrl;
 import com.example.urlshortener.domain.ShortUrlStatus;
@@ -32,6 +33,9 @@ class UrlManagementServiceTest {
     @Mock
     private ShortUrlCache shortUrlCache;
 
+    @Mock
+    private AuditLogger auditLogger;
+
     private UrlManagementService service;
     private final Instant now = Instant.parse("2026-07-16T20:00:00Z");
 
@@ -41,7 +45,8 @@ class UrlManagementServiceTest {
                 new ShortCodeFormatValidator(),
                 shortUrlRepository,
                 shortUrlCache,
-                Clock.fixed(now, ZoneOffset.UTC));
+                Clock.fixed(now, ZoneOffset.UTC),
+                auditLogger);
     }
 
     @Test
@@ -61,6 +66,7 @@ class UrlManagementServiceTest {
         assertThat(entity.isDisabled()).isTrue();
         assertThat(entity.getUpdatedAt()).isEqualTo(now);
         verify(shortUrlCache).evict("aB7xK9P");
+        verify(auditLogger).record("DISABLE_URL", "aB7xK9P", "success");
     }
 
     @Test

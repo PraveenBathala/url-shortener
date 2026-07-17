@@ -3,11 +3,13 @@ package com.example.urlshortener.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -17,9 +19,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.example.urlshortener.agentic.RiskLevel;
+import com.example.urlshortener.agentic.UrlSafetyAgent;
+import com.example.urlshortener.agentic.UrlSafetyAssessment;
 import com.example.urlshortener.analytics.RedirectEventPublisher;
 import com.example.urlshortener.api.dto.CreateShortUrlRequest;
 import com.example.urlshortener.api.error.ShortCodeGenerationFailedException;
+import com.example.urlshortener.audit.AuditLogger;
 import com.example.urlshortener.cache.ShortUrlCache;
 import com.example.urlshortener.config.AppProperties;
 import com.example.urlshortener.domain.ShortUrl;
@@ -49,6 +55,12 @@ class ReliabilityBehaviorTest {
 
     @Mock
     private ShortCodeGenerator shortCodeGenerator;
+
+    @Mock
+    private UrlSafetyAgent urlSafetyAgent;
+
+    @Mock
+    private AuditLogger auditLogger;
 
     private final Instant now = Instant.parse("2026-07-16T20:00:00Z");
 
@@ -105,6 +117,8 @@ class ReliabilityBehaviorTest {
         properties.getShortCode().setMaxGenerationAttempts(2);
         AtomicInteger attempts = new AtomicInteger();
         when(destinationUrlValidator.validate("https://example.com")).thenReturn("https://example.com");
+        when(urlSafetyAgent.assess(anyString()))
+                .thenReturn(new UrlSafetyAssessment(RiskLevel.LOW, "ALLOW", List.of(), List.of()));
         when(shortCodeGenerator.generate()).thenAnswer(invocation -> "code" + attempts.incrementAndGet());
         when(shortUrlRepository.saveAndFlush(any(ShortUrl.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
@@ -115,7 +129,9 @@ class ReliabilityBehaviorTest {
                 shortUrlRepository,
                 properties,
                 new UrlShortenerMetrics(new SimpleMeterRegistry()),
-                Clock.fixed(now, ZoneOffset.UTC));
+                Clock.fixed(now, ZoneOffset.UTC),
+                urlSafetyAgent,
+                auditLogger);
 
         assertThatThrownBy(() -> creationService.create(new CreateShortUrlRequest("https://example.com", null)))
                 .isInstanceOf(ShortCodeGenerationFailedException.class);

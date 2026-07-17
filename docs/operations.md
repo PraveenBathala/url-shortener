@@ -10,6 +10,7 @@ $env:DATABASE_PASSWORD="urlshortener"
 $env:REDIS_HOST="localhost"
 $env:REDIS_PORT="6379"
 $env:APP_BASE_URL="http://localhost:8080"
+$env:APP_API_KEY="dev-api-key-change-me"
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -44,6 +45,21 @@ Custom meters include:
 - `urlshortener.analytics.publish.failures`
 - creation/redirect latency timers
 
+## Logging
+
+Default console output is **JSON** via `logback-spring.xml` (Logstash encoder) for ELK/Loki.
+
+For human-readable local logs:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="local-text"
+```
+
+## OpenAPI
+
+- Swagger UI: `/swagger-ui.html`
+- Spec: `/v3/api-docs`
+
 ## Failure behavior
 
 | Dependency | User-visible behavior |
@@ -52,6 +68,9 @@ Custom meters include:
 | Analytics unavailable/timeout | Redirects continue; analytics failure metrics increase; events may be lost |
 | PostgreSQL unavailable | Create/redirect fail with controlled 5xx; no silent corruption |
 | Collision retries exhausted | Controlled `SHORT_CODE_GENERATION_FAILED` response |
+| Missing/invalid API key | `401 UNAUTHORIZED` on management APIs |
+| Rate limit exceeded | `429 RATE_LIMIT_EXCEEDED` on create/bulk/disable |
+| Agentic HIGH risk | `400 URL_SAFETY_REJECTED` |
 
 ## Suggested alerts
 

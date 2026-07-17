@@ -64,6 +64,30 @@ Custom aliases were reviewed against the current API. Implementing them now woul
 
 MVP ships generated Base62 codes only.
 
+## Bulk create: partial success versus all-or-nothing
+
+**Chosen:** Per-item results with HTTP 200 (`CREATED` / `FAILED` entries).
+
+**Why:** Callers can retry only failed items; one bad URL should not discard a whole marketing batch.
+
+**Tradeoff:** Clients must inspect `results[]` instead of relying on a single status code.
+
+## API key versus full OAuth
+
+**Chosen:** Shared `X-API-Key` for management APIs.
+
+**Why:** Closes the unauthenticated create/disable gap with minimal ceremony; interviewable and env-configurable.
+
+**Tradeoff:** No per-user identity or fine-grained RBAC — document upgrade path to OIDC for brokerage multi-tenant use.
+
+## Deterministic agent tools versus external LLM planner
+
+**Chosen:** Deterministic multi-tool `UrlSafetyAgent` (no remote LLM call in MVP).
+
+**Why:** Hermetic tests, no API keys/cost, SSRF-safe. Still demonstrates plan→act→observe→decide.
+
+**Tradeoff:** Less flexible than an LLM planner; extension point documented in `docs/agentic.md`.
+
 ## Strong versus eventual consistency
 
 **Chosen:** Strong consistency for mapping create/read against PostgreSQL; eventual consistency for analytics and cache population.

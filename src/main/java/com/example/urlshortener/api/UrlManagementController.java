@@ -8,8 +8,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.urlshortener.service.UrlManagementService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/api/v1/urls")
+@Tag(name = "URL Management")
+@SecurityRequirement(name = "ApiKeyAuth")
 public class UrlManagementController {
 
     private final UrlManagementService urlManagementService;
@@ -18,10 +24,8 @@ public class UrlManagementController {
         this.urlManagementService = urlManagementService;
     }
 
-    /**
-     * Soft-disable endpoint. Requires authentication before production exposure.
-     */
     @DeleteMapping("/{shortCode}")
+    @Operation(summary = "Soft-disable a short URL")
     public ResponseEntity<Void> disable(@PathVariable String shortCode) {
         urlManagementService.disable(shortCode);
         return ResponseEntity.noContent().build();

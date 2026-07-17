@@ -19,6 +19,9 @@ public class AppProperties {
     private final DestinationUrl destinationUrl = new DestinationUrl();
     private final Cache cache = new Cache();
     private final Analytics analytics = new Analytics();
+    private final Security security = new Security();
+    private final Bulk bulk = new Bulk();
+    private final Agentic agentic = new Agentic();
 
     public String getBaseUrl() {
         return baseUrl;
@@ -42,6 +45,18 @@ public class AppProperties {
 
     public Analytics getAnalytics() {
         return analytics;
+    }
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    public Bulk getBulk() {
+        return bulk;
+    }
+
+    public Agentic getAgentic() {
+        return agentic;
     }
 
     public static class ShortCode {
@@ -120,6 +135,107 @@ public class AppProperties {
 
         public void setPublishTimeoutMs(long publishTimeoutMs) {
             this.publishTimeoutMs = publishTimeoutMs;
+        }
+    }
+
+    public static class Security {
+
+        /**
+         * Shared API key for create/disable/analytics/bulk. Empty disables enforcement
+         * only when {@link #requireApiKey} is false (tests / local demos).
+         */
+        private String apiKey = "dev-api-key-change-me";
+
+        private boolean requireApiKey = true;
+
+        private final RateLimit rateLimit = new RateLimit();
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public boolean isRequireApiKey() {
+            return requireApiKey;
+        }
+
+        public void setRequireApiKey(boolean requireApiKey) {
+            this.requireApiKey = requireApiKey;
+        }
+
+        public RateLimit getRateLimit() {
+            return rateLimit;
+        }
+    }
+
+    public static class RateLimit {
+
+        private boolean enabled = true;
+
+        @Positive
+        private int requestsPerMinute = 60;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getRequestsPerMinute() {
+            return requestsPerMinute;
+        }
+
+        public void setRequestsPerMinute(int requestsPerMinute) {
+            this.requestsPerMinute = requestsPerMinute;
+        }
+    }
+
+    public static class Bulk {
+
+        @Min(1)
+        @Max(100)
+        private int maxBatchSize = 20;
+
+        public int getMaxBatchSize() {
+            return maxBatchSize;
+        }
+
+        public void setMaxBatchSize(int maxBatchSize) {
+            this.maxBatchSize = maxBatchSize;
+        }
+    }
+
+    public static class Agentic {
+
+        /**
+         * When true, create path runs the multi-tool URL safety agent before insert.
+         */
+        private boolean enabled = true;
+
+        /**
+         * When true, HIGH risk assessments reject creation. MEDIUM is logged only.
+         */
+        private boolean blockHighRisk = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isBlockHighRisk() {
+            return blockHighRisk;
+        }
+
+        public void setBlockHighRisk(boolean blockHighRisk) {
+            this.blockHighRisk = blockHighRisk;
         }
     }
 }
